@@ -1,0 +1,1231 @@
+#################################
+#Notes to self:
+#check if the sub tree you're going down is 0 (with a temp) before grabbing the address
+#this way you don't have to link back up, you already have the link and you're done!!
+#also change the alloc call to utilize the stack when it actually works, instead of #moving to a temp variable
+#Finally, dealing with the root can be a special case: the way to do that is on the #moodle site so go read it ya dummy.
+
+
+
+
+.data #all items here are under data segment
+
+head: .word 0 #head of free list
+root: .word 0 #word w/ value 0 (corresponds to root of tree)
+
+.align 2# ensure memory iis aligned to multiple of 4.
+	#when you're storing words in an array.
+
+nodes: .space 600 #25 nodes x 6 words x 4 bytes
+
+start_prompt: .asciiz "Welcome to the quadtree program!\n"
+end_prompt: .asciiz "Thank you for using the program! Goodbye! \n"
+newline: .asciiz "\n"
+num_nodes_prompt: .asciiz "Give the number of nodes to you want (no larger than 25) \n"
+x_prompt: .asciiz "Give an x value!"
+y_prompt: .asciiz "Give a y value!"
+
+
+inserting_root: .asciiz "Inserting At root!"
+inserting_node: .asciiz "Inserting New Node!"
+
+moving_SW: .asciiz "Moving the search SW!"
+moving_SE: .asciiz "Moving the search SE!"
+moving_NW: .asciiz "Moving the search NW!"
+moving_NE: .asciiz "Moving the search NE!"
+
+less_than_y: .asciiz "The Y being searched is less than the node!"
+greater_than_y: .asciiz "The Y being searched is greater than the node!"
+equal_to_y: .asciiz "The Y being searched is equal to the node!"
+
+less_than_x: .asciiz "The X being searched is less than the node!"
+greater_than_x: .asciiz "The X being searched is greater than the node!"
+equal_to_x: .asciiz "The X being searched is equal to the node!"
+
+same_x_y: .asciiz "Both X and Y are the same!"
+
+not_exist: .asciiz "The value doesn't exist!"
+
+search_returned: .asciiz "Search Returned: \n"
+deleting_tree: .asciiz "Deleting Tree!\n"
+
+test: .asciiz "test"
+test2: .asciiz "nodes: \n"
+test3: .asciiz "root: \n"
+test4: .asciiz "head: \n"
+.text
+
+main: li $v0,4 #prompt to show program start
+la $a0,start_prompt
+syscall
+
+
+#ask user to enter an integer of how many X/Y pairs they want
+li $v0,4 #prompt to ask for nodes
+la $a0,num_nodes_prompt
+syscall
+
+li $v0,5, #get the integer
+syscall
+
+li $s3,25
+
+bgt $v0,$s3,end
+blt $v0,$zero,end
+
+move $s5,$v0 #put the number of nodes in a backup
+move $a1,$s5 # put the number of nodes in a the argument now
+#INITIALIZE FREE LIST
+#params for init
+la $a0,nodes #starting address of all empty nodes
+#li $a1,25 #set number of nodes to create for init function (use what user gives)
+jal init #call init with above params
+#init finished, put address of first node in free list in $v0
+sw $v0,head #move free list out of v0 into head.
+
+#do we want to move root to head here, as root is technically head right now?
+#Loop a number equal to number they inputted
+count_loop: beqz $s5,count_loop_fin
+#print address of head
+li $v0,4 #prompt to ask for nodes
+la $a0,test4
+syscall
+
+li $v0,4 #prompt to ask for nodes
+la $a0,newline
+syscall
+
+
+li $v0,1 #prompt to ask for nodes
+la $a0,head
+syscall
+
+li $v0,4 #prompt to ask for nodes
+la $a0,newline
+syscall
+
+li $v0,4 #prompt to ask for nodes
+la $a0,test3
+syscall
+li $v0,4 #prompt to ask for nodes
+la $a0,newline
+syscall
+
+#print address of root
+li $v0,1 #prompt to ask for nodes
+la $a0,root
+syscall
+
+li $v0,4 #prompt to ask for nodes
+la $a0,newline
+syscall
+li $v0,4 #prompt to ask for nodes
+la $a0,test2
+syscall
+li $v0,4 #prompt to ask for nodes
+la $a0,newline
+syscall
+
+#print address of nodes
+li $v0,1 #prompt to ask for nodes
+la $a0,nodes
+syscall
+
+
+li $v0,4 #prompt to ask for nodes #ask user for an X
+la $a0,x_prompt
+syscall
+li $v0,5, #get the x
+syscall
+move $s1,$v0 #set to temp argument value
+
+
+li $v0,4 #ask user for a y
+la $a0,y_prompt
+syscall
+li $v0,5, #get the y
+syscall
+move $s2,$v0 #set to temp arg value
+ #now set temp args to actual arg values
+move $a0,$s1
+move $a1,$s2
+la $a2, root
+la $a3, head
+#jal search
+jal insertnode
+#Call your Insert procedure with X,Y and root of your tree and address of first node in free list as arguments
+addi $s5,$s5,-1
+j count_loop
+count_loop_fin:
+move $v0,$zero
+li $v0,4 #prompt to ask for nodes #ask user for an X
+la $a0,x_prompt
+syscall
+li $v0,5, #get the x
+syscall
+move $s1,$v0 #set to temp argument value
+
+li $v0,4 #prompt to ask for nodes
+la $a0,newline
+syscall
+
+
+li $v0,4 #ask user for a y
+la $a0,y_prompt
+syscall
+li $v0,5, #get the y
+syscall
+move $a0,$s1
+move $a1,$v0
+la $a2, root
+la $a3, head
+jal search
+move $s3,$v0
+la $a0,search_returned
+li $v0,4
+syscall
+
+move $a0,$s3
+li $v0,1
+syscall
+
+la $a0, deleting_tree
+li $v0,4
+syscall
+
+#la $a0,root
+#la $a1,head
+#jal deletetree
+j end
+
+
+
+#once all node entered, ask user to search for x and you
+#call your search function on given x and you
+#call your delete function
+#jump back to main once
+#just exit for now
+end:
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+ li $v0,4
+ la $a0,end_prompt
+ syscall
+
+ li $v0,10
+ syscall
+
+
+
+
+
+####################################################
+insertnode:
+#params $a0, X value $a1: Y value, $a2: address of root of tree
+#a3: Free list
+
+#TEMP VALUES USED
+#$t0 and $t6 are the values of the current address
+#$t1 is the x of the current node
+#$t2 is the y of the current node
+#$t5 is used to hold the adress of root in $a2
+#$t3 is used to hold the edited array which we dont need
+#If it's 1, we have to set the root and increment the value!
+
+
+#after loading $t5, don't use $a2
+#NOTE TO SELF: Probably going to have to use some other temp address to hold the address of the previous node; slight modification to the search but it should work well enough.
+#use this to set root when you start so it doesn't go crazy
+#use a2 instead of root in set_root.
+lw $t5,0($a2)
+beqz $t5,set_root
+
+#addi $t3,$a2,4
+insert_search:
+move $t0,$t5
+#bump the array up 4 because we store the value of the start of the array at 0.
+
+move $s7,$a0
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+move $a0,$t5
+li $v0,1
+syscall
+
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+li $v0,4 #new line
+la $a0,test
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+move $a0,$a1
+li $v0,1
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+move $a0,$s7
+li $v0,1
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+ #li $v0,1
+ #syscall
+#if it's not empty, we can get its x and y!
+lw $t1,0($t0) #load x of node
+
+
+ move $a0,$t1
+ li $v0,1
+ syscall
+#
+ li $v0,4 #new line
+ la $a0,newline
+ syscall
+#
+#
+ lw $t2,4($t0) #load y of node
+ #li $v0,1
+ #syscall
+ move $a0,$t2
+ li $v0,1
+ syscall
+
+ li $v0,4 #new line
+ la $a0,newline
+ syscall
+
+ #move $a0,$a1
+ #li $v0,1
+ #syscall
+#
+ #li $v0,4 #new line
+ #la $a0,newline
+ #syscall
+#
+#
+#
+#
+#
+ move $a0,$s7
+#
+
+
+
+#then, check if curr node already has X/Y we're trying to insert
+#Check y equal
+beq $a1,$t2,y_equal_ins
+#Then, since we know we're not placing or removing, check where to go next:
+#check if the y we want to find is greater than y:
+bgt $a1,$t2,y_greater_ins
+#check if the y we want to find is less than y:
+blt $a1,$t2,y_less_ins
+#go back: this should never be called but if it is we know there's an error
+#we should probably print something there
+
+j insert_search
+
+
+
+
+#we've found empty spot to insert node
+#call ALLOC to create a new node
+#put X and Y in new node
+
+#now set this new node to be a child of an existing node (or the root if no node exists)
+
+
+
+
+y_equal_ins:
+move $t9,$a0
+li $v0,4 #new line
+la $a0,equal_to_y
+syscall
+move $a0,$t9
+#check if cur_x is equal
+beq $a0,$t1,same_node
+#check if cur_x is greater
+	bgt $a0,$t1,ins_go_NE
+#check if cur_x is less
+	blt $a0,$t1,ins_go_SW
+	#go back to move the search to the new node
+j finish_insert
+
+y_greater_ins:
+move $t9,$a0
+
+li $v0,4 #new line
+la $a0,greater_than_y
+syscall
+move $a0,$t9
+#check if cur_x is less than or equal to the x we're at, go NW if it is
+ble $a0,$t1,ins_go_NW
+#check if cur_x is greater than the x we're at, go NE if it is
+bgt $a0,$t1,ins_go_NE
+j finish_insert
+
+y_less_ins:
+move $t9,$a0
+li $v0,4 #new line
+la $a0,less_than_y
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+li $v0,1 #new line
+move $a0,$t1
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+li $v0,1 #new line
+move $a0,$t9
+syscall
+move $a0,$t9
+#check if cur_x is greater than or equal to the x we're at, go SE if it is
+bge $a0,$t1,ins_go_SE
+#check if cur_x is less than x we're at, go SW if it is.
+blt $a0,$t1,ins_go_SW
+
+same_node:
+move $v0,$t0
+j finish_insert
+
+
+
+insert_new_node:
+addi $sp,$sp,16 #allocate space for the 3 items on stack, so we can get them back after the call to alloc
+sw $ra,0($sp) #return address saved
+sw $a0,4($sp) #x value saved
+sw $a1,8($sp) #y value saved
+#sw $
+
+la $a0,newline
+li $v0,4
+syscall
+
+#test print
+la $a0,inserting_node
+li $v0,4
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+
+
+move $a0,$a2
+li $v0,1
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+
+#la $a0,$a2
+#li $v0,1
+#syscall
+
+move $a0,$a3 #set $a0 to head of free list
+#call ALLOC to create/set up new node
+jal alloc
+#alloc does some stuff, don't worry about it just know that you're gonna get a new node
+#get the node back, hold onto its address
+move $t6,$v0
+
+move $a0,$t6
+li $v0,1
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,test
+li $v0,4
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+
+move $a0,$t7
+li $v0,1
+syscall
+
+
+la $a0,newline
+li $v0,4
+syscall
+
+
+#get back our old information we need!
+lw $ra,0($sp) #get back our old return address
+lw $a0,4($sp) #get back our x to insert
+lw $a1,8($sp) #get back our y to insert
+
+#save X and Y into the new node
+sw $a0,0($t6)
+sw $a1,4($t6)
+
+
+
+#save the address of the new node into where t7 found an empty spot
+la $a0,test
+li $v0,4
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+
+#save $t6 4 behind t7, since the whole thing is behind? This seems kinda dumb.
+sw $t6,0($t7)
+
+#check all properties in the root nodes list
+move $s7,$a2 #new line
+lw $a0,24($t5)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,20($t5)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,16($t5)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,12($t5)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,8($t5)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,4($t5)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,0($t5)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,0($t6)
+li $v0,1
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,4($t6)
+li $v0,1
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+
+addi $sp,$sp,12 #give back space used to store stuff before the call
+
+ # we're done inserting, so we should just STOP!
+j finish_insert
+
+set_root:
+addi $sp,$sp,-12 #allocate space for the 3 items on stack, so we can get them back after the call to alloc
+sw $ra,0($sp) #return address saved
+sw $a0,4($sp) #x value saved
+sw $a1,8($sp) #y value saved
+
+#test print
+la $a0,inserting_root
+li $v0,4
+syscall
+
+move $a0,$a3 #set $a0 to head of free list
+#call ALLOC to create/set up new node
+jal alloc
+#alloc does some stuff, don't worry about it just know that you're gonna get a new node
+#get the node back and put it into root
+move $t6,$v0
+#use $a2 here?
+sw $v0,root
+
+move $a0,$t6
+li $v0,1
+syscall
+
+lw $a0,0($t6)
+li $v0,1 #new line
+syscall
+
+#get back our old information we need!
+lw $ra,0($sp) #get back our old return address
+lw $a0,4($sp) #get back our x to insert
+lw $a1,8($sp) #get back our y to insert
+
+#save X and Y into the new node
+sw $a0,0($t6)
+sw $a1,4($t6)
+
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,0($t6)
+li $v0,1
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+lw $a0,4($t6)
+li $v0,1
+syscall
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+addi $sp,$sp,12 #give back space used to store stuff before the call
+
+j finish_insert
+
+
+ins_go_NE:
+move $t9,$a0
+
+li $v0,4 #prompt to ask for nodes
+la $a0,moving_NE
+syscall
+
+addi $t7,$t5,12
+li $v0,1 #prompt to ask for nodes
+move $a0,$t5
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+li $v0,1 #prompt to ask for nodes
+move $a0,$t7
+syscall
+
+move $a0,$t9
+#check if next pointer is empty, if it is, insert new node
+lw $t8,0($t7)
+beqz $t8,insert_new_node
+lw $t5,0($t7)
+# otherwise, something's there so change pointer to northeast
+
+#everything else will change off of this when we jump back
+#go back to move the search to the new node
+j insert_search
+
+ins_go_SW:
+move $t9,$a0
+li $v0,4 #prompt to ask for nodes
+la $a0,moving_SW
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+addi $t7,$t5,20
+li $v0,1 #prompt to ask for nodes
+move $a0,$t5
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+li $v0,1 #prompt to ask for nodes
+move $a0,$t7
+syscall
+
+move $a0,$t9
+#check if next pointer is empty, if it is, insert new node
+lw $t8,0($t7)
+beqz $t8,insert_new_node
+#change pointer to southwest
+lw $t5,0($t7)
+#everything else will change off of this when we jump back
+#go back to move the search to the new node
+j insert_search
+
+ins_go_NW:
+move $t9,$a0
+li $v0,4 #prompt to ask for nodes
+la $a0,moving_NW
+syscall
+
+#check if next pointer is empty, if it is, insert new node
+addi $t7,$t5,8
+li $v0,1 #prompt to ask for nodes
+move $a0,$t5
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+li $v0,1 #prompt to ask for nodes
+move $a0,$t7
+syscall
+
+move $a0,$t9
+#check if next pointer is empty, if it is, insert new node
+lw $t8,0($t7)
+beqz $t8,insert_new_node
+#change pointer to northwest
+#go back to move the search to the new node
+lw $t5,0($t7)
+j insert_search
+
+ins_go_SE:
+move $t9,$a0
+li $v0,4 #prompt to ask for nodes
+la $a0,moving_SE
+syscall
+#check if next pointer is empty, if it is, insert new node
+addi $t7,$t5,16
+li $v0,1 #prompt to ask for nodes
+move $a0,$t5
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+li $v0,1 #prompt to ask for nodes
+move $a0,$t7
+syscall
+
+li $v0,4 #new line
+la $a0,newline
+syscall
+
+move $a0,$t9
+#check if next pointer is empty, if it is, insert new node
+lw $t8,0($t7)
+beqz $t8,insert_new_node
+#change pointer to southeast
+#go back to move the search to the new node
+lw $5,0($t7)
+j insert_search
+
+finish_insert:
+jr $ra
+
+
+
+
+
+#########################################################################
+search:
+#params $a0, X value $a1: Y value, $a2: address of root of tree
+#a3: Free list
+#Check if the tree is empty equal to 0 before you check any of the other values
+lw $t5,0($a2)
+beqz $t5,not_found
+
+
+#Must search tree by checking X/Y values of current node
+move $t3,$a0 #move starting X value to temp
+move $t4,$a1 #move starting Y value to temp
+#move $t5,$a2 #move starting root address to temp
+#when these move, t6, t1 and t2 will change
+move_search:
+move $t0,$t5
+
+#move $t8,$a0
+#lw $a0,0($t0)
+#li $v0,1
+#syscall
+#move $a0,$t8
+
+#move $t8,$a0
+#la $a0,newline
+#li $v0,4
+#syscall
+#move $a0,$t8
+
+#move $t8,$a0
+#lw $a0,4($t0)
+#li $v0,1
+#syscall
+#move $a0,$t8
+
+
+#move $t8,$a0
+#move $a0,$a1
+#li $v0,1
+#syscall
+#move $a0,$t8
+
+#move $t8,$a0
+#la $a0,newline
+#li $v0,4
+#syscall
+#move $a0,$t8
+
+#move $t8,$a0
+#move $a0,$a0
+#li $v0,1
+#syscall
+#move $a0,$t8
+
+
+lw $t1,0($t0) #load x of node
+lw $t2,4($t0) #load y of node
+
+move $t8,$a0
+la $a0,test
+li $v0,4
+syscall
+move $a0,$t8
+
+move $t8,$a0
+la $a0,newline
+li $v0,4
+syscall
+move $a0,$t8
+
+#move $t8,$a0
+#move $a0,$t2
+#li $v0,1
+#syscall
+#move $a0,$t8
+
+move $t8,$a0
+la $a0,newline
+li $v0,4
+syscall
+move $a0,$t8
+
+#move $t8,$a0
+#move $a0,$a1
+#li $v0,1
+#syscall
+#move $a0,$t8
+
+#move $t8,$a0
+#la $a0,newline
+#li $v0,4
+#syscall
+#move $a0,$t8
+
+#check if the y we want to find is equal to y:
+beq $a1,$t2,search_y_equal
+#check if the y we want to find is greater than y:
+bgt $a1,$t2,search_y_greater
+#check if the y we want to find is less than y:
+blt $a1,$t2,search_y_less
+#go back: this should never be called but if it is we know there's an error
+#we should probably print something there
+
+
+la $a0,test
+li $v0,4
+syscall
+
+j search
+
+########################################################
+#SEARCH HELPER CODE
+# GO NW IF: new_x < cur_x AND new_y > cur_y
+# GO NE IF: new_x > cur_x AND new_y > cur_y
+# GO SW IF: new_x > cur_x AND new_y < cur_y
+# GO SE IF: new_x > cur_x AND new_y < cur_y
+
+#slt,sgt, set less than set greater than may help
+
+#go back to loop after changing what curr node is by doing this
+
+not_found:
+li $v0,4 #new line
+la $a0,not_exist
+syscall
+#set v0 to 0, return zero to say we found nothing
+move $v0,$zero
+#go to finish
+j finish_procedure
+
+search_y_equal:
+move $t9,$a0
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,equal_to_y
+li $v0,4
+syscall
+
+move $a0,$t9
+#check if cur_x is equal
+beq $a0,$t1,item_found
+#check if cur_x is greater
+	bgt $a0,$t1,go_NE
+#check if cur_x is less
+	blt $a0,$t1,go_SW
+	#go back to move the search to the new node
+j move_search
+
+search_y_greater:
+move $t9,$a0
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,greater_than_y
+li $v0,4
+syscall
+
+move $a0,$t9
+#check if cur_x is less than or equal to the x we're at, go NW if it is
+ble $a0,$t1,go_NW
+#check if cur_x is greater than the x we're at, go NE if it is
+bgt $a0,$t1,go_NE
+j move_search
+
+search_y_less:
+move $t9,$a0
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,less_than_y
+li $v0,4
+syscall
+
+move $a0,$t9
+#check if cur_x is greater than or equal to the x we're at, go SE if it is
+bge $a0,$t1,go_SE
+#check if cur_x is less than x we're at, go SW if it is.
+blt $a0,$t1,go_SW
+j move_search
+
+item_found:
+move $t9,$a0
+li $v0,4
+la $a0,same_x_y
+syscall
+move $a0,$t9
+#set this to 1.
+li $v0,1
+#finish the search with a successful find of the item
+j finish_procedure
+
+go_NE:
+move $t9,$a0
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,moving_NE
+li $v0,4
+syscall
+
+move $a0,$t9
+addi $t7,$t5,12
+lw $t8,0($t7)
+beqz $t8,not_found
+#change pointer to northwest
+#go back to move the search to the new node
+lw $t5,0($t7)#everything else will change off of this when we jump back
+#go back to move the search to the new node
+j move_search
+
+go_SW:
+move $t9,$a0
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,moving_SW
+li $v0,4
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+
+move $a0,$t5
+li $v0,1
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+#Add the address you should be at.
+addi $t7,$t5,20
+#check if next pointer is empty, if it is, say nothing was found
+
+move $a0,$t7
+li $v0,1
+syscall
+
+la $a0,newline
+li $v0,4
+syscall
+move $a0,$t9
+lw $t8,0($t7)
+beqz $t8,not_found
+#change pointer to southwest
+lw $t5,0($t7)
+#everything else will change off of this when we jump back
+#go back to move the search to the new node
+j move_search
+
+go_NW:
+move $t9,$a0
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,moving_NW
+li $v0,4
+syscall
+
+move $a0,$t9
+#check if next pointer is empty, if it is, say nothing was found
+addi $t7,$t5,8
+lw $t8,0($t7)
+beqz $t8,not_found
+#change pointer to northwest
+#go back to move the search to the new node
+lw $t5,0($t7)
+
+j move_search
+
+go_SE:
+move $t9,$a0
+
+la $a0,newline
+li $v0,4
+syscall
+
+la $a0,moving_SE
+li $v0,4
+syscall
+
+move $a0,$t9
+addi $t7,$t5,16
+lw $t8,0($t7)
+beqz $t8,not_found
+#change pointer to northwest
+#go back to move the search to the new node
+lw $t5,0($t7)
+j move_search
+
+finish_procedure:
+jr $ra
+#################################################################################
+
+#deletetree
+#a0: adress of word containing root of tree/subtree
+#a1: address of first node in free list
+#v0: returns nothing
+
+deletetree:lw $t0,0($a0) #load current node from our parametes
+
+beqz $t0,delete_return #check base case: return if node is empty or null
+
+
+#RECURSIVE CASE: node is not empty
+#save return address
+#save adress of our node
+#save adress of free list
+addi $sp,$sp,-12 #allocate space for 3 items on stack
+sw $ra 0($sp)
+sw $a0 4($sp)
+sw $a1,8($sp)
+
+#delete tree NW child
+#make sure a0 a1 contain right parametes
+
+addi $a0,$t0,8 #make a0 = address of NW child
+jal deletetree
+#we've returned from recursing through NW subtree
+#load saved parameters from stack to restore this funct variables
+
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+#then call this with 8, 16 20 for NE SE SW fro line 18 respectively
+############################################################
+#repeat above for each deletetree call
+
+#deletetree(NE child)
+addi $a0,$t0,12 #make a0 = address of NE child
+jal deletetree
+#we've returned from recursing through NE subtree
+#load saved parameters from stack to restore this funct variables
+
+
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+#deletetree(SE child)
+addi $a0,$t0,16 #make a0 = address of SE child
+jal deletetree
+#we've returned from recursing through SE subtree
+#load saved parameters from stack to restore this funct variables
+
+la $a0,newline
+li $v0,4
+syscall
+
+
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+#deletetree(SW child)
+addi $a0,$t0,20 #make a0 = address of SW child
+jal deletetree
+#we've returned from recursing through SW subtree
+#load saved parameters from stack to restore this funct variables
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+
+#delete current node by calling free method on it
+#put correct parameters into a0,a1 for free
+#a0: address of free list
+move $a0,$a1
+move $a1,$t0
+ jal free #must copy paste free from files on moodle into this file
+
+
+
+ lw $a0,4($sp) #load address of our node
+ sw $zero,0($a0)
+ sw $zero,24($a0)
+ lw $a1,8($sp)
+ sw $zero,0($a1)
+
+ #LOAD THE CURRENT RETURN ADDRESS FROM STACK!
+ lw $ra,0($sp) #without this we can't return home
+
+addi $sp,$sp,12 #give back the space we used for the items.
+
+delete_return:jr,$ra #go back to where jal was called.
+
+
+#######################################################
+#GIVEN PROCEDURES:
+#INIT
+	# procedure init initializes the free list
+		# procedure arguments as follows:
+		#   $a0 - address of block of memory to be used for free list
+		#   $a1 - desired size of free list (number of nodes)
+		# $v0: procedure returns pointer to first node in free list
+init:	  	move $v0,$a0
+	  	blez $a1,init_r			# continue looping until a1 is 0
+init_l:   	sw $zero,0($a0)		# zero out ALL fields of the node (x,y,Nw,NE,SE,SW)
+	  	sw $zero,4($a0)
+	  	sw $zero,8($a0)
+	  	sw $zero,12($a0)
+	  	sw $zero,16($a0)
+	  	addi $a0,$a0,24		# move memory up by 24 bytes so we can start with the next node
+	  	sw $a0,-4($a0)		# set the pointer at the end of this free node to the address of the next node
+	  	addi $a1,$a1,-1
+	  	bne $zero,$a1,init_l	# repeatedly loop until a1 is 0
+	  	sw $zero,-4($a0)		# make sure link to next freenode is 0, as there are no more free nodes
+init_r:   	jr $ra		# go back to whence we came
+
+
+##################################################################3
+#FREE
+		# procedure free returns a node to the free list
+        	# procedure arguments as follows:
+        	#   $a0 - address of word containing the address of the first node in free list
+			#   $a1 - address of node that should be added to free list
+free:		lw $t0,0($a0)	# get address of previous first node in free list
+	  	sw $a1,0($a0)	# add address of this node to be new front of the free list
+	  	sw $t0,20($a1)	# set this node's next node field to point to the previous free list's first node
+	  	sw $zero,16($a1)	# zero out the other 5 word fields of this node (X,Y,NW,NE,SE,SW)
+	  	sw $zero,12($a1)
+	  	sw $zero,8($a1)
+	  	sw $zero,4($a1)
+	  	sw $zero,0($a1)
+	  	jr $ra
+
+#####################################################################3
+
+# procedure alloc gets a node from the free list
+        	# procedure argument as follows:
+        	#   $a0 - address of word containing the address of the first node in free list
+        	# procedure returns pointer to unlinked node in v0
+alloc:		lw $v0,0($a0)	# set address to return as that of the first node in the free list
+	  	beq $v0,$zero,alloc_r  	#if free list is empty, return 0
+	 	lw $t0,20($v0)	# grab next address in free list
+	  	sw $t0,0($a0)	# put next address of free list as first entry in free list
+	  	sw $zero,20($v0)	# zero out the next free list address field of node we just allocated
+alloc_r:  	jr $ra	# go back from whence we came

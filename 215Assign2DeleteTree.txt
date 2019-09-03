@@ -1,0 +1,83 @@
+#deletetree
+#a0: adress of word containing root of tree/subtree
+#a1: address of first node in free list
+#v0: returns nothing
+
+jal deletetree #set $ra to adress of next line of code
+
+deletetree:lw $t0,0($a0) #load current node from our parametes
+
+beqz $t0,deletetree_return #check base case: return if node is empty or null
+
+
+#RECURSIVE CASE: node is not empty
+#save return address
+#save adress of our node
+#save adress of free list
+
+
+addi $sp,$sp,-12 #allocate space for 3 items on stack
+sw $ra 0($sp)
+sw $a0 4($sp)
+sw $a1,8($sp)
+
+#delete tree NW child
+#make sure a0 a1 contain right parametes
+
+addi $a0,$t0,8 #make a0 = address of NW child
+jal deletetree
+#we've returned from recursing through NW subtree
+#load saved parameters from stack to restore this funct variables
+
+
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+#then call this with 8, 16 20 for NE SE SW fro line 18 respectively
+############################################################
+#repeat above for each deletetree call
+
+#deletetree(NE child)
+addi $a0,$t0,12 #make a0 = address of NE child
+jal deletetree
+#we've returned from recursing through NE subtree
+#load saved parameters from stack to restore this funct variables
+
+
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+#deletetree(SE child)
+addi $a0,$t0,16 #make a0 = address of SE child
+jal deletetree
+#we've returned from recursing through SE subtree
+#load saved parameters from stack to restore this funct variables
+
+
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+#deletetree(SW child)
+addi $a0,$t0,20 #make a0 = address of SW child
+jal deletetree
+#we've returned from recursing through SW subtree
+#load saved parameters from stack to restore this funct variables
+
+
+lw $a0 4($sp) #load address of our node
+lw $a1,8($sp) #
+lw $t0,0($a0) #load current node again, as t0 was overwritten
+
+#delete current node by calling free method on it
+#put correct parameters into a0,a1 for free
+#a0: address of free list
+move $a0,$a1
+move $a1,$t0
+ jal free #must copy paste free from files on moodle into this file
+
+ #LOAD THE CURRENT RETURN ADDRESS FROM STACK!
+ lw $ra,0($sp) #without this we can't return home
+
+addi $sp,$sp,12 #give back the space we used for the items.
+
+delete_return jr,$ra #go back to where jal was called.
